@@ -13,15 +13,10 @@ module FPL-SYNTAX
 
   syntax VExp ::= Exp | Val
   syntax Exp ::= Id
-               /* > VExp "*" VExp [left] */
-               /* | VExp "/" VExp [left] */
-               /* > VExp "+" VExp [left] */
-               > VExp AOp VExp
+               > AOp VExp VExp
                | "(" VExp ")" [bracket]
 
   syntax Let ::= "let" Id "=" "(" VExp ")"
-               > "let" Id "=" Id
-               > "let" Id "=" Val
 
   syntax Ids ::= List{Id,","}
 
@@ -60,21 +55,22 @@ module FPL
        <reading> true => false </reading>
 
   // base case integer rules
-  rule X:Int + Y:Int => X +Int Y
-  rule X:Int * Y:Int => X *Int Y
-  rule X:Int / Y:Int => X /Int Y
+  rule (+ X:Int Y:Int) => X +Int Y
+  rule (- X:Int Y:Int) => X -Int Y
+  rule (* X:Int Y:Int) => X *Int Y
+  rule (/ X:Int Y:Int) => X /Int Y
     when Y =/=Int 0
 
   // arithmetic rules
-  rule <k> X:Exp O:AOp Y => X ~> ans O X ... </k>
+  rule <k> O:AOp X:Exp Y => X ~> (O ans X) ... </k>
        <reading> false </reading>
-  rule <k> X O:AOp Y:Exp => Y ~> X O ans ... </k>
+  rule <k> O:AOp X Y:Exp => Y ~> (O X ans) ... </k>
        <reading> false </reading>
   
   // read ans
-  rule <k> X O ans => X O V ... </k>
+  rule <k> O X ans => O X V ... </k>
        <ans> V </ans>
-  rule <k> ans O X => V O X ... </k>
+  rule <k> O ans X => O V X ... </k>
        <ans> V </ans>
 
   // write ans
@@ -91,16 +87,6 @@ module FPL
        <env> ... .=>(N |-> L) </env>
        <store> ... .=>(L |-> E) </store>
     when fresh(L)
-
-  // variable definition - shorthand for values
-  rule <k> let N:Id = (E:VExp) => . ... </k>
-       <env> ... .=>(N |-> L) </env>
-       <store> ... .=>(L |-> E) </store>
-    when fresh(L)
-
-  // variable copy
-  rule <k> let N:Id = M:Id => . ... </k>
-       <env> ... K |-> L ... .=>(N |-> L) </env>
 
   // thunk variable lookup
   syntax K ::= Id "<-" VExp
