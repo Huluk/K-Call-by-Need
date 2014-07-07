@@ -1,8 +1,12 @@
-let p = (\ x, y -> {
-  if < x y then {
-    + x y
-  } else {
-    - x y
-  }
-});
-+ p (1,2) 4
+def empty2 ( x ) {
+    true
+};
+def fold ( f, acc, li ) {
+    if empty2(li) then {
+        acc
+    } else {
+        fold(f, f(acc,head(li)), tail(li))
+    }
+};
+let plus = (\x,y->{+ x y});
+fold ( plus, 0, 0 )

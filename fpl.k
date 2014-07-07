@@ -3,12 +3,27 @@
 
 Trying out <thunk> execute
 
+
+current thoughts:
+
+if I create call-by-need lists,
+then these lists may contain arbitrary VExp.
+When one of these elements is evaluated (by calling hd),
+then it must be overridden in the original list,
+which may be anywhere in any variable.
+so, each list must contain a backlink in order to signify,
+part of which list it is.
+possible solution: make new list object:
+list_reference_starting_at_index_i,
+which solves this problem.
+
 \author{Lars Hansen}
 */
 
 module FPL-SYNTAX
   syntax PgmExp ::= VExp
                   | Let
+                  | Funct
                   | "halt"
                   | PgmExp ";" PgmExp [left]
 
@@ -17,13 +32,18 @@ module FPL-SYNTAX
                | VExp "(" VExps ")"
                | "if" VExp "then" Block "else" Block
                > AOp VExp VExp
+               > Prelude
                | "(" VExp ")" [bracket]
 
   syntax Let ::= "let" Id "=" "(" VExp ")"
 
+  syntax Funct ::= "def" Id "(" Ids ")" Block
+
   syntax Lambda ::= "\\" Ids "->" Block
 
   syntax Block ::= "{" PgmExp "}"
+
+  syntax Prelude ::= "empty" | "head" | "tail"
 
   syntax Ids ::= List{Id,","}
   syntax VExps ::= List{VExp,","}
@@ -97,6 +117,8 @@ module FPL
        <fstack> ListItem((Env,K))=>. ... </fstack>
        <ans> V </ans>
 
+  // prelude functions TODO
+
   // arithmetic derivation rules
   rule <k> O:AOp X:Exp Y:VExp => X ~> O ans Y ... </k>
        <reading> false </reading>
@@ -137,6 +159,12 @@ module FPL
        <store> ... .=>(L |-> E) </store>
     when fresh(L)
 
+  // function definition
+  rule <k> def N:Id ( Args:Ids ) B:Block => . ... </k>
+       <genv> ... .=>(N |-> L) </genv>
+       <store> ... .=>(L |-> \ Args -> B) </store>
+    when fresh(L)
+
   // thunk variable lookup
   syntax K ::= Id "<-" VExp
   rule <k> N:Id => E ~> N <- ans ... </k>
@@ -154,6 +182,12 @@ module FPL
   rule <k> N:Id => V ... </k>
        <env> ... N |-> L ... </env>
        <store> ... L |-> V:Val ... </store>
+       <reading> false </reading>
+
+  // global variable lookup
+  rule <k> N:Id => E ... </k>
+       <genv> ... N |-> L ... </genv>
+       <store> ... L |-> E ... </store>
        <reading> false </reading>
 
 endmodule

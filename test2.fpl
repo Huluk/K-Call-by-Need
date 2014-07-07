@@ -1,0 +1,8 @@
+let p = (\ x, y -> {
+  if < x y then {
+    + x y
+  } else {
+    - x y
+  }
+});
++ p (1,2) 4
