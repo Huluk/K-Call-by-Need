@@ -1,6 +1,8 @@
 /*execute 
 \title{FPL}
 
+Problem: all base operations may be executed, /bc they don't check reading
+
 Trying out <thunk> execute
 
 
@@ -19,6 +21,7 @@ which solves this problem.
 
 \author{Lars Hansen}
 */
+require "ans_rules.k"
 
 module FPL-SYNTAX
   syntax PgmExp ::= VExp
@@ -29,10 +32,13 @@ module FPL-SYNTAX
 
   syntax VExp ::= Exp | Val
   syntax Exp ::= Id
-               | VExp "(" VExps ")"
+               > "empty" "(" VExp ")"
+               | "head" "(" VExp ")"
+               | "tail" "(" VExp ")"
+               > VExp "(" VExps ")"
                | "if" VExp "then" Block "else" Block
                > AOp VExp VExp
-               > Prelude
+               > "$arg" VExp
                | "(" VExp ")" [bracket]
 
   syntax Let ::= "let" Id "=" "(" VExp ")"
@@ -41,24 +47,32 @@ module FPL-SYNTAX
 
   syntax Lambda ::= "\\" Ids "->" Block
 
+  syntax Li ::= "[" VExps "]"
+              | "[" VExps "|" Lambda "]"
+
   syntax Block ::= "{" PgmExp "}"
 
-  syntax Prelude ::= "empty" | "head" | "tail"
+  syntax Predef ::= "empty"
+                  | "head"
+                  | "tail"
 
   syntax Ids ::= List{Id,","}
   syntax VExps ::= List{VExp,","}
 
   syntax AOp ::= "*" | "/" > "+" | "-" | "<"
 
-  syntax Val ::= Int | Bool | Lambda
+  syntax Val ::= Int | Bool | Lambda | Li
 endmodule
 
 module FPL-CONFIG
   imports FPL-SYNTAX
+  imports ANS-RULES
 
   syntax KResult ::= Val
 
   syntax K ::= "execute" | "ans"
+             | (Map,K)
+             | "continue" "(" Map "," K ")"
 
   configuration
     <T>
@@ -102,12 +116,10 @@ module FPL
 
   // lambda partial application
   rule \ X:Id,Xs:Ids -> {B} ( E:VExp,Es:VExps ) =>
-       \ Xs -> { let X = (E) ; B } (Es)
+       \ Xs -> { let X = ($arg E) ; B } (Es)
   // lambda application
-  syntax K ::= (Map,K)
   rule <k> \ .Ids -> {B} ( .VExps ) ~> K => B ~> execute </k>
-       <genv> GEnv </genv>
-       <env> Env => GEnv </env>
+       <env> Env => .Map </env>
        <fstack> .=>ListItem((Env,K)) ... </fstack>
        <reading> false => true </reading>
 
@@ -117,32 +129,16 @@ module FPL
        <fstack> ListItem((Env,K))=>. ... </fstack>
        <ans> V </ans>
 
-  // prelude functions TODO
-
-  // arithmetic derivation rules
-  rule <k> O:AOp X:Exp Y:VExp => X ~> O ans Y ... </k>
-       <reading> false </reading>
-  rule <k> O:AOp X:VExp Y:Exp => Y ~> O X ans ... </k>
-       <reading> false </reading>
-  // arithmetic read ans
-  rule <k> O X ans => O X V ... </k>
-       <ans> V </ans>
-  rule <k> O ans X => O V X ... </k>
-       <ans> V </ans>
-
-  // conditional derivation rules
-  rule <k> if X:Exp then T else F => X ~> if ans then T else F ... </k>
-       <reading> false </reading>
-  // conditional read ans
-  rule <k> if ans then T else F => if V then T else F ... </k>
-       <ans> V </ans>
-
-  // lambda derivation rules
-  rule <k> X:Exp ( Args:VExps ) => X ~> ans (Args) ... </k>
-       <reading> false </reading>
-  // lambda read ans
-  rule <k> ans ( Args ) => V (Args) ... </k>
-       <ans> V </ans>
+  // predef functions
+  // TODO test
+  rule empty ( [.VExps] ) => true
+  rule empty ( [E:VExp,Es:VExps] ) => false
+  rule empty ( [_ | R] ) => false
+  rule head ( [E:VExp,Es:VExps] ) => E
+  rule head ( [E:VExp,Es:VExps | _] ) => E
+  rule head ( [.VExps | R] ) => head ( R )
+  rule tail ( [E:VExp,Es:VExps] ) => [Es]
+  rule tail ( [E:VExp,Es:VExps | R ] ) => [Es | R]
 
   // write ans
   rule <k> (V:Val ~> E) => E ... </k>
@@ -152,6 +148,16 @@ module FPL
   rule <k> X:Exp ~> Y => Y ... </k>
        <ans> _=>X </ans>
        <reading> true </reading>
+  
+  // get value from different scope
+  rule <k> $arg E:VExp => E:VExp ~> continue(CurEnv,K) ... </k>
+       <env> CurEnv=>Env </env>
+       <fstack> ListItem((Env,K))=>. ... </fstack>
+
+  // return to scope
+  rule <k> continue(Env,K) =>. ... </k>
+       <env> CurEnv=>Env </env>
+       <fstack> .=>ListItem((CurEnv,K)) ... </fstack>
 
   // variable definition
   rule <k> let N:Id = (E:VExp) => . ... </k>
@@ -166,6 +172,7 @@ module FPL
     when fresh(L)
 
   // thunk variable lookup
+  // remove rule to change to call-by-name
   syntax K ::= Id "<-" VExp
   rule <k> N:Id => E ~> N <- ans ... </k>
        <env> ... N |-> L ... </env>
@@ -173,12 +180,14 @@ module FPL
        <reading> false </reading>
 
   // thunk variable override
+  // remove rule to change to call-by-name
   rule <k> N:Id <- ans => V ... </k>
        <ans> V </ans>
        <env> ... N |-> L ... </env>
        <store> ... L |-> (_=>V) ... </store>
 
   // base variable lookup
+  // remove :Val for V to change to call-by-name
   rule <k> N:Id => V ... </k>
        <env> ... N |-> L ... </env>
        <store> ... L |-> V:Val ... </store>

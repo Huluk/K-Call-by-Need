@@ -1,12 +1,18 @@
-def empty2 ( x ) {
-    true
-};
 def fold ( f, acc, li ) {
-    if empty2(li) then {
+    if empty(li) then {
         acc
     } else {
-        fold(f, f(acc,head(li)), tail(li))
+        let a = (f (acc, head(li)));
+        let b = (tail(li));
+        fold(f, a, b)
+    }
+};
+def fold2 ( f, acc, li ) {
+    if empty(li) then {
+        acc
+    } else {
+        halt
     }
 };
 let plus = (\x,y->{+ x y});
-fold ( plus, 0, 0 )
+fold ( plus, 0, [1,2,3,4] )
