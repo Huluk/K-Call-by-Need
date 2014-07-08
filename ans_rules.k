@@ -1,4 +1,6 @@
-// TODO description
+// various rules which allow to replace the command "ans"
+// with the value stored in <ans>
+
 module ANS-RULES
   imports FPL-SYNTAX
   imports FPL-CONFIG
@@ -26,6 +28,13 @@ module ANS-RULES
        <reading> false </reading>
   // lambda read ans
   rule <k> ans ( Args ) => V (Args) ... </k>
+       <ans> V </ans>
+
+  // list extension derivation rules
+  rule <k> X : Y:Exp => Y ~> X : ans ... </k>
+       <reading> false </reading>
+  // list extension ans
+  rule <k> X : ans => X : V ... </k>
        <ans> V </ans>
 
   // empty derivation rules

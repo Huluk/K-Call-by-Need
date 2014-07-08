@@ -7,12 +7,8 @@ def fold ( f, acc, li ) {
         fold(f, a, b)
     }
 };
-def fold2 ( f, acc, li ) {
-    if empty(li) then {
-        acc
-    } else {
-        halt
-    }
-};
 let plus = (\x,y->{+ x y});
-fold ( plus, 0, [1,2,3,4] )
+let li = (
+    1 : [ 2,+ 1 2, 4]
+);
+fold ( plus, 0, li )

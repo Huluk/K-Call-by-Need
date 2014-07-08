@@ -31,6 +31,7 @@ module FPL-SYNTAX
                   | PgmExp ";" PgmExp [left]
 
   syntax VExp ::= Exp | Val
+
   syntax Exp ::= Id
                > "empty" "(" VExp ")"
                | "head" "(" VExp ")"
@@ -38,6 +39,7 @@ module FPL-SYNTAX
                > VExp "(" VExps ")"
                | "if" VExp "then" Block "else" Block
                > AOp VExp VExp
+               > VExp ":" VExp
                > "$arg" VExp
                | "(" VExp ")" [bracket]
 
@@ -48,7 +50,6 @@ module FPL-SYNTAX
   syntax Lambda ::= "\\" Ids "->" Block
 
   syntax Li ::= "[" VExps "]"
-              | "[" VExps "|" Lambda "]"
 
   syntax Block ::= "{" PgmExp "}"
 
@@ -66,7 +67,6 @@ endmodule
 
 module FPL-CONFIG
   imports FPL-SYNTAX
-  imports ANS-RULES
 
   syntax KResult ::= Val
 
@@ -88,6 +88,7 @@ endmodule
 
 module FPL
   imports FPL-CONFIG
+  imports ANS-RULES
 
   // halting
   rule <k> halt => HOLE ... </k>
@@ -129,16 +130,14 @@ module FPL
        <fstack> ListItem((Env,K))=>. ... </fstack>
        <ans> V </ans>
 
+  // list extension
+  rule X:VExp : [Els:VExps] => [X,Els]
+
   // predef functions
-  // TODO test
   rule empty ( [.VExps] ) => true
   rule empty ( [E:VExp,Es:VExps] ) => false
-  rule empty ( [_ | R] ) => false
   rule head ( [E:VExp,Es:VExps] ) => E
-  rule head ( [E:VExp,Es:VExps | _] ) => E
-  rule head ( [.VExps | R] ) => head ( R )
   rule tail ( [E:VExp,Es:VExps] ) => [Es]
-  rule tail ( [E:VExp,Es:VExps | R ] ) => [Es | R]
 
   // write ans
   rule <k> (V:Val ~> E) => E ... </k>
